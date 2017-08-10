@@ -71,6 +71,8 @@ G_DEFINE_TYPE (GInetFlowTable, g_inet_flow_table, G_TYPE_OBJECT);
 #define ETH_PROTOCOL_8021AD     0x88A8
 #define ETH_PROTOCOL_IP         0x0800
 #define ETH_PROTOCOL_IPV6       0x86DD
+#define ETH_PROTOCOL_PPPOE_SESS 0x8864
+
 typedef struct ethernet_hdr_t
 {
     guint8 destination[6];
@@ -83,9 +85,22 @@ typedef struct vlan_hdr_t {
     guint16  protocol;
 } __attribute__((packed)) vlan_hdr_t;
 
+typedef struct pppoe_sess_hdr
+{
+    u_int8_t ver_type;
+    u_int8_t code;
+    u_int16_t session_id;
+    u_int16_t payload_length;
+    u_int16_t ppp_protocol_id;
+} __attribute__ ((packed)) pppoe_sess_hdr_t;
+
 #define IP_PROTOCOL_ICMP        1
 #define IP_PROTOCOL_TCP         6
 #define IP_PROTOCOL_UDP         17
+/* PPP protocol IDs */
+#define PPP_PROTOCOL_IPV4          0x0021
+#define PPP_PROTOCOL_IPV6          0x0057
+
 typedef struct ip_hdr_t
 {
     guint8 ihl_version;
@@ -316,6 +331,7 @@ flow_parse (GInetFlow *f, const guint8 *data, guint32 length, guint16 hash)
 {
     ethernet_hdr_t *e;
     vlan_hdr_t *v;
+    pppoe_sess_hdr_t *pppoe_hdr;
     guint16 type;
     int tags = 0;
 
@@ -359,6 +375,31 @@ try_again:
             f->hash = hash;
             if (!flow_parse_ipv6 (f, data, length))
                 return FALSE;
+            break;
+        case ETH_PROTOCOL_PPPOE_SESS:
+            pppoe_hdr = (pppoe_sess_hdr_t *) data;
+
+            if (g_ntohs (pppoe_hdr->ppp_protocol_id) == PPP_PROTOCOL_IPV4 ||
+                g_ntohs (pppoe_hdr->ppp_protocol_id) == PPP_PROTOCOL_IPV6)
+            {
+                data += sizeof (pppoe_sess_hdr_t);
+                length -= sizeof (pppoe_sess_hdr_t);
+
+                if (g_ntohs (pppoe_hdr->ppp_protocol_id) == PPP_PROTOCOL_IPV4)
+                {
+                    f->family = G_SOCKET_FAMILY_IPV4;
+                    f->hash = hash;
+                    if (!flow_parse_ipv4 (f, data, length))
+                        return FALSE;
+                }
+                else
+                {
+                    f->family = G_SOCKET_FAMILY_IPV6;
+                    f->hash = hash;
+                    if (!flow_parse_ipv6 (f, data, length))
+                        return FALSE;
+                }
+            }
             break;
         default:
             DEBUG("Unsupported ethernet protocol: 0x%04x\n", type);
