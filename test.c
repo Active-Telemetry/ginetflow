@@ -124,6 +124,31 @@ void test_flow_create()
     g_object_unref(table);
 }
 
+void test_flow_table_size()
+{
+    GInetFlowTable *table = g_inet_flow_table_new();
+    setup_test();
+    NP_ASSERT_NOT_NULL(table);
+
+    guint64 max;
+    g_object_get(table, "max", &max, NULL);
+    NP_ASSERT_EQUAL(max, 0);
+
+    g_inet_flow_table_max_set(table, 1);
+    g_object_get(table, "max", &max, NULL);
+    NP_ASSERT_EQUAL(max, 1);
+
+    guint pk1 = make_pkt(test_buffer, 4, IP_PROTOCOL_UDP);
+    GInetFlow *flow1 = g_inet_flow_get_full(table, test_buffer, pk1, 0, get_time_us(), TRUE);
+    NP_ASSERT_NOT_NULL(flow1);
+
+    guint pk2 = make_pkt(test_buffer, 4, IP_PROTOCOL_TCP);
+    GInetFlow *flow2 = g_inet_flow_get_full(table, test_buffer, pk2, 0, get_time_us(), TRUE);
+    NP_ASSERT_NULL(flow2);
+
+    g_object_unref(table);
+}
+
 void test_flow_not_expired()
 {
     guint64 now = get_time_us();
