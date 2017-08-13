@@ -55,6 +55,7 @@ struct _GInetFlowTable {
     GList *list;
     guint64 hits;
     guint64 misses;
+    guint64 max;
 };
 struct _GInetFlowTableClass {
     GObjectClass parent;
@@ -492,6 +493,10 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
         }
         table->hits++;
     } else {
+    	/* Check if max table size is reached */
+    	if (table->max > 0 && g_hash_table_size(table->table) >= table->max)
+    		return NULL;
+
         flow = (GInetFlow *) g_object_new(G_INET_TYPE_FLOW, NULL);
         flow->family = packet.family;
         flow->hash = packet.hash;
@@ -539,7 +544,8 @@ static void g_inet_flow_table_finalize(GObject * object)
 enum {
     TABLE_SIZE = 1,
     TABLE_HITS,
-    TABLE_MISSES
+    TABLE_MISSES,
+    TABLE_MAX
 };
 
 static void g_inet_flow_table_get_property(GObject * object, guint prop_id,
@@ -555,6 +561,9 @@ static void g_inet_flow_table_get_property(GObject * object, guint prop_id,
         break;
     case TABLE_MISSES:
         g_value_set_uint64(value, table->misses);
+        break;
+    case TABLE_MAX:
+        g_value_set_uint64(value, table->max);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(table, prop_id, pspec);
@@ -578,6 +587,10 @@ static void g_inet_flow_table_class_init(GInetFlowTableClass * class)
                                     g_param_spec_uint64("misses", "Misses",
                                                         "Total number of packets that did not match an existing flow",
                                                         0, 0, 0, G_PARAM_READABLE));
+    g_object_class_install_property(object_class, TABLE_MAX,
+                                    g_param_spec_uint64("max", "Max",
+                                                        "Maximum number of flows allowed in the table",
+                                                        0, 0, 0, G_PARAM_READABLE));
     object_class->finalize = g_inet_flow_table_finalize;
 }
 
@@ -591,6 +604,11 @@ static void g_inet_flow_table_init(GInetFlowTable * table)
 GInetFlowTable *g_inet_flow_table_new(void)
 {
     return (GInetFlowTable *) g_object_new(G_INET_TYPE_FLOW_TABLE, NULL);
+}
+
+void g_inet_flow_table_max_set(GInetFlowTable * table, guint64 value)
+{
+	table->max= value;
 }
 
 void g_inet_flow_foreach(GInetFlowTable * table, GIFFunc func, gpointer user_data)

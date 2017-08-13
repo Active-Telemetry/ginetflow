@@ -52,6 +52,7 @@ GInetFlow *g_inet_flow_expire(GInetFlowTable * table, guint64 ts);
 
 typedef void (*GIFFunc) (GInetFlow * flow, gpointer user_data);
 void g_inet_flow_foreach(GInetFlowTable * table, GIFFunc func, gpointer user_data);
+void g_inet_flow_table_max_set(GInetFlowTable * table, guint64 value);
 
 G_END_DECLS
 #endif                          /* __G_INET_FLOW_H__ */
