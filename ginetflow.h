@@ -33,6 +33,7 @@ typedef struct _GInetFlowTableClass GInetFlowTableClass;
 
 /* Flow states */
 typedef enum {
+    FLOW_NONE,
     FLOW_NEW,
     FLOW_OPEN,
     FLOW_CLOSED,
@@ -41,7 +42,7 @@ typedef enum {
 /* Default timeouts */
 #define G_INET_FLOW_DEFAULT_NEW_TIMEOUT         30
 #define G_INET_FLOW_DEFAULT_OPEN_TIMEOUT        300
-#define G_INET_FLOW_DEFAULT_CLOSED_TIMEOUT      0
+#define G_INET_FLOW_DEFAULT_CLOSED_TIMEOUT      30
 
 GInetFlowTable *g_inet_flow_table_new(void);
 GInetFlow *g_inet_flow_get(GInetFlowTable * table, const guint8 * frame, guint length);

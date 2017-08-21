@@ -25,6 +25,7 @@
 
 #define DEBUG(fmt, args...)
 //#define DEBUG(fmt, args...) {g_printf("%s: ",__func__);g_printf (fmt, ## args);}
+#define CHECK_BIT(__v,__p) ((__v) & (1<<(__p)))
 
 /** GInetFlow */
 struct _GInetFlow {
@@ -40,6 +41,7 @@ struct _GInetFlow {
         guint16 upper_port;
         guint32 lower_ip[4];
         guint32 upper_ip[4];
+        guint16 flags;
     } tuple;
     gpointer context;
 };
@@ -259,6 +261,7 @@ static gboolean flow_parse_tcp(GInetFlow * f, const guint8 * data, guint32 lengt
         f->tuple.upper_port = sport;
         f->tuple.lower_port = dport;
     }
+    f->tuple.flags = GUINT16_FROM_BE(tcp->flags);
     return TRUE;
 }
 
@@ -601,10 +604,52 @@ static void g_inet_flow_class_init(GInetFlowClass * class)
     object_class->finalize = g_inet_flow_finalize;
 }
 
+void g_inet_flow_update(GInetFlow * flow, GInetFlow * packet)
+{
+    if (flow->tuple.protocol == IP_PROTOCOL_TCP) {
+        g_inet_flow_update_tcp();
+    }
+    else if (flow->tuple.protocol == IP_PROTOCOL_UDP) {
+        g_inet_flow_update_udp();
+    }
+}
+
+void g_inet_flow_update_tcp(GInetFlow * flow, GInetFlow * packet)
+{
+    /* FIN */
+    if (CHECK_BIT(packet->tuple.flags, 0)) {
+        /* ACK */
+        if (CHECK_BIT(packet->tuple.flags, 4)) {
+            flow->state = FLOW_CLOSED;
+        }
+    }
+    /* SYN */
+    if (CHECK_BIT(packet->tuple.flags, 1)) {
+        /* ACK */
+        if (CHECK_BIT(packet->tuple.flags, 4)) {
+            flow->state = FLOW_OPEN;
+        }
+        else
+        {
+            flow->state = FLOW_NEW;
+        }
+    }
+    /* RST */
+    if (CHECK_BIT(packet->tuple.flags, 2)) {
+        flow->state = FLOW_CLOSED;
+    }
+}
+
+void g_inet_flow_update_udp(GInetFlow * flow, GInetFlow * packet)
+{
+    flow->state = FLOW_OPEN;
+}
+
 static void g_inet_flow_init(GInetFlow * flow)
 {
-    flow->state = FLOW_NEW;
+    flow->state = FLOW_NONE;
 }
+
 
 GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
                                 const guint8 * frame, guint length,
@@ -630,6 +675,7 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
     		return NULL;
 
         flow = (GInetFlow *) g_object_new(G_INET_TYPE_FLOW, NULL);
+        g_inet_flow_init(flow);
         flow->family = packet.family;
         flow->hash = packet.hash;
         flow->tuple = packet.tuple;
@@ -640,6 +686,7 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
     if (update) {
         flow->timestamp = timestamp ? : get_time_us();
         flow->packets++;
+        g_inet_flow_update(flow, &packet);
     }
     return flow;
 }
@@ -652,10 +699,18 @@ GInetFlow *g_inet_flow_get(GInetFlowTable * table, const guint8 * frame, guint l
 GInetFlow *g_inet_flow_expire(GInetFlowTable * table, guint64 ts)
 {
     GList *iter;
+    guint64 timeout;
 
     for (iter = g_list_first(table->list); iter; iter = g_list_next(iter)) {
         GInetFlow *flow = (GInetFlow *) iter->data;
-        guint64 timeout = (G_INET_FLOW_DEFAULT_NEW_TIMEOUT * 1000000);
+        if (flow->state == FLOW_NEW)
+          timeout = (G_INET_FLOW_DEFAULT_NEW_TIMEOUT * 1000000);
+        else if (flow->state == FLOW_OPEN)
+          timeout = (G_INET_FLOW_DEFAULT_OPEN_TIMEOUT * 1000000);
+        else if (flow->state == FLOW_CLOSED)
+          timeout = (G_INET_FLOW_DEFAULT_CLOSED_TIMEOUT * 1000000);
+        else
+          timeout = 0;
         if (flow->timestamp + timeout <= ts) {
             table->list = g_list_remove(table->list, flow);
             g_hash_table_remove(table->table, (gpointer) flow);
