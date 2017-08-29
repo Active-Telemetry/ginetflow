@@ -41,7 +41,7 @@ typedef enum {
 /* Default timeouts */
 #define G_INET_FLOW_DEFAULT_NEW_TIMEOUT         30
 #define G_INET_FLOW_DEFAULT_OPEN_TIMEOUT        300
-#define G_INET_FLOW_DEFAULT_CLOSED_TIMEOUT      30
+#define G_INET_FLOW_DEFAULT_CLOSED_TIMEOUT      10
 
 GInetFlowTable *g_inet_flow_table_new(void);
 GInetFlow *g_inet_flow_get(GInetFlowTable * table, const guint8 * frame, guint length);

@@ -54,8 +54,9 @@ struct _GInetFlowClass {
 G_DEFINE_TYPE(GInetFlow, g_inet_flow, G_TYPE_OBJECT);
 
 static int lifetime_values[] = {
-    30,                         /* FLOW_NEW, FLOW_CLOSED */
-    300,                        /* FLOW_OPEN */
+    G_INET_FLOW_DEFAULT_CLOSED_TIMEOUT,
+    G_INET_FLOW_DEFAULT_NEW_TIMEOUT,
+    G_INET_FLOW_DEFAULT_OPEN_TIMEOUT,
 };
 
 #define LIFETIME_COUNT (sizeof(lifetime_values) / sizeof(lifetime_values[0]))
