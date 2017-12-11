@@ -20,7 +20,7 @@
 #include <arpa/inet.h>
 #include <np.h>
 
-static GInetTuple *test_tuple;
+static GInetTuple *test_tuple = NULL;
 #define MAX_BUFFER_SIZE     1600
 
 #define TEST_SPORT 0x1111
@@ -542,9 +542,7 @@ static guint make_pkt_gre(guint8 * buffer, guint16 eth_protocol, guint16 gre_pro
 
 static void setup_test()
 {
-    if (test_tuple)
-        g_object_unref(test_tuple);
-    test_tuple = (GInetTuple *) g_object_new(G_INET_TUPLE_TYPE, NULL);
+    test_tuple = calloc(1, sizeof(*test_tuple));
     memset(test_buffer, 0, MAX_BUFFER_SIZE);
 }
 
@@ -578,7 +576,7 @@ void test_flow_parse_udp()
 {
     setup_test();
 
-    GInetTuple *test = (GInetTuple *) g_object_new(G_INET_TUPLE_TYPE, NULL);
+    GInetTuple *test = calloc(1, sizeof(GInetTuple));
     guint len = make_pkt(test_buffer, ETH_PROTOCOL_IP, IP_PROTOCOL_UDP);
     NP_ASSERT(flow_parse(test, test_buffer, len, 0, NULL, NULL, 0, NULL));
 
@@ -591,7 +589,7 @@ void test_flow_parse_udp()
 
     len = make_pkt_reverse(test_buffer, ETH_PROTOCOL_IPV6, IP_PROTOCOL_UDP);
     NP_ASSERT(flow_parse(test, test_buffer, len, 0, NULL, NULL, 0, NULL));
-    g_object_unref(test);
+    free(test);
 }
 
 void test_flow_parse_tcp()
@@ -2118,73 +2116,3 @@ void test_flow_expiry_queue()
     g_object_unref(table);
 }
 
-
-void test_tuple_creation()
-{
-    GInetTuple *tuple = g_object_new(G_INET_TUPLE_TYPE, NULL);
-    NP_ASSERT_NULL(g_inet_tuple_get_src(tuple));
-    NP_ASSERT_NULL(g_inet_tuple_get_dst(tuple));
-    NP_ASSERT_NULL(g_inet_tuple_get_lower(tuple));
-    NP_ASSERT_NULL(g_inet_tuple_get_upper(tuple));
-    g_object_unref(tuple);
-}
-
-void test_tuple_get_addresses()
-{
-    GInetTuple *tuple = g_object_new(G_INET_TUPLE_TYPE, NULL);
-    GInetAddress *src = g_inet_address_new_from_string("192.168.1.1");
-    GInetAddress *dst = g_inet_address_new_from_string("192.168.1.2");
-    g_inet_tuple_set_src_address(tuple, src);
-    g_inet_tuple_set_dst_address(tuple, dst);
-    NP_ASSERT(g_inet_address_equal(src, g_inet_tuple_get_src(tuple)));
-    NP_ASSERT(g_inet_address_equal(dst, g_inet_tuple_get_dst(tuple)));
-    g_object_unref(tuple);
-}
-
-void test_tuple_get_endpoints()
-{
-    GInetTuple *tuple = g_object_new(G_INET_TUPLE_TYPE, NULL);
-    GInetAddress *src = g_inet_address_new_from_string("192.168.1.1");
-    GInetAddress *dst = g_inet_address_new_from_string("192.168.1.2");
-    g_inet_tuple_set_src_address(tuple, src);
-    g_inet_tuple_set_src_port(tuple, 12345);
-    g_inet_tuple_set_dst_address(tuple, dst);
-    g_inet_tuple_set_dst_port(tuple, 80);
-
-    GInetSocketAddress *lower = g_inet_tuple_get_lower(tuple);
-    GInetSocketAddress *upper = g_inet_tuple_get_upper(tuple);
-    GInetSocketAddress *server = g_inet_tuple_get_server(tuple);
-
-    NP_ASSERT(g_inet_socket_address_get_port(lower) == 80);
-    NP_ASSERT(g_inet_socket_address_get_port(upper) == 12345);
-    NP_ASSERT(g_inet_address_equal(g_inet_socket_address_get_address(lower), dst));
-    NP_ASSERT(g_inet_address_equal(g_inet_socket_address_get_address(upper), src));
-    NP_ASSERT(g_inet_socket_address_equal(server, lower));
-    NP_ASSERT(!g_inet_socket_address_equal(server, upper));
-
-    g_object_unref(tuple);
-}
-
-void test_tuple_get_ipv6_endpoints()
-{
-    GInetTuple *tuple = g_object_new(G_INET_TUPLE_TYPE, NULL);
-    GInetAddress *src = g_inet_address_new_from_string("fc00:1::1");
-    GInetAddress *dst = g_inet_address_new_from_string("fc00:1::2");
-    g_inet_tuple_set_src_address(tuple, src);
-    g_inet_tuple_set_src_port(tuple, 12345);
-    g_inet_tuple_set_dst_address(tuple, dst);
-    g_inet_tuple_set_dst_port(tuple, 80);
-
-    GInetSocketAddress *lower = g_inet_tuple_get_lower(tuple);
-    GInetSocketAddress *upper = g_inet_tuple_get_upper(tuple);
-    GInetSocketAddress *server = g_inet_tuple_get_server(tuple);
-
-    NP_ASSERT(g_inet_socket_address_get_port(lower) == 80);
-    NP_ASSERT(g_inet_socket_address_get_port(upper) == 12345);
-    NP_ASSERT(g_inet_address_equal(g_inet_socket_address_get_address(lower), dst));
-    NP_ASSERT(g_inet_address_equal(g_inet_socket_address_get_address(upper), src));
-    NP_ASSERT(g_inet_socket_address_equal(server, lower));
-    NP_ASSERT(!g_inet_socket_address_equal(server, upper));
-
-    g_object_unref(tuple);
-}

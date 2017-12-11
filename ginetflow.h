@@ -52,7 +52,9 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table, const guint8 * frame,
                                 gboolean update, gboolean l2, const uint8_t ** iphr);
 GInetFlow *g_inet_flow_expire(GInetFlowTable * table, guint64 ts);
 
-GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GList ** fragments);
+/* g_inet_flow_parse will populate result if result is not null, otherwise it will malloc a structure
+ * to return. */
+GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GList ** fragments, GInetTuple *result);
 
 typedef void (*GIFFunc) (GInetFlow * flow, gpointer user_data);
 void g_inet_flow_foreach(GInetFlowTable * table, GIFFunc func, gpointer user_data);
