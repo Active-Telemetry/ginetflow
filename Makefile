@@ -8,7 +8,7 @@ CC:=$(CROSS_COMPILE)gcc
 PKG_CONFIG ?= pkg-config
 GREP = grep --line-buffered --color=always
 
-CFLAGS = -fPIC -g -O2
+CFLAGS = -fPIC -g -O0
 
 EXTRA_CFLAGS = `$(PKG_CONFIG) --cflags glib-2.0 gio-2.0` -I.
 EXTRA_LDFLAGS = `$(PKG_CONFIG) --libs glib-2.0 gio-2.0` 

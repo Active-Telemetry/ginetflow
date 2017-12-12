@@ -93,42 +93,23 @@ static int sock_address_comparison(struct sockaddr_storage *a, struct sockaddr_s
 
 gboolean g_inet_tuple_equal(GInetTuple * a, GInetTuple * b)
 {
+    if (a->protocol != b->protocol) {
+        return FALSE;
+    }
+
     struct sockaddr_storage *lower_a = g_inet_tuple_get_lower(a);
     struct sockaddr_storage *upper_a = g_inet_tuple_get_upper(a);
     struct sockaddr_storage *lower_b = g_inet_tuple_get_lower(b);
     struct sockaddr_storage *upper_b = g_inet_tuple_get_upper(b);
-    gboolean equal = FALSE;
 
-    if (!lower_a || !upper_a || !lower_b || !upper_b) {
-        goto exit;
-    }
-    if (a->protocol != b->protocol) {
-        goto exit;
-    }
     if (sock_address_comparison(lower_a, lower_b)) {
-        goto exit;
+        return FALSE;
     }
     if (sock_address_comparison(upper_a, upper_b)) {
-        goto exit;
+        return FALSE;
     }
-    equal = TRUE;
-  exit:
-    return equal;
-}
 
-static inline guint16 crc16(guint16 iv, guint64 p)
-{
-    int i;
-    int j;
-    guint32 b;
-    guint16 poly = 0x1021;
-    for (i = 7; i >= 0; i--) {
-        b = (p >> (i * 8)) & 0xff;
-        for (j = 7; j >= 0; j--) {
-            iv = ((iv << 1) ^ ((((iv >> 15) & 1) ^ ((b >> j) & 1)) ? poly : 0)) & 0xffff;
-        }
-    }
-    return iv;
+    return TRUE;
 }
 
 guint g_inet_tuple_hash(GInetTuple * tuple)
@@ -140,32 +121,14 @@ guint g_inet_tuple_hash(GInetTuple * tuple)
     guint16 prot_crc = 0xffff;
 
     if (tuple->hash)
-        return hash;
+    {
+        return tuple->hash;
+    }
 
     struct sockaddr_storage *lower = g_inet_tuple_get_lower(tuple);
     struct sockaddr_storage *upper = g_inet_tuple_get_upper(tuple);
 
-    if (lower->ss_family == AF_INET)
-    {
-        src_crc = crc16(src_crc, ((guint64) ((struct sockaddr_in*)lower)->sin_addr.s_addr) << 32);
-        src_crc = crc16(src_crc, ((guint64) ((struct sockaddr_in*)lower)->sin_port) << 48);
-        src_crc = crc16(src_crc, ((guint64) ((struct sockaddr_in*)upper)->sin_addr.s_addr) << 32);
-        dst_crc = crc16(dst_crc, ((guint64) ((struct sockaddr_in*)upper)->sin_port) << 48);
-    }
-    else
-    {
-        src_crc = crc16(src_crc, ((guint64) ((struct sockaddr_in6*)lower)->sin6_addr.s6_addr32[0]) << 32 | ((struct sockaddr_in6*)lower)->sin6_addr.s6_addr32[1]);
-        src_crc = crc16(src_crc, ((guint64) ((struct sockaddr_in6*)lower)->sin6_addr.s6_addr32[2]) << 32 | ((struct sockaddr_in6*)lower)->sin6_addr.s6_addr32[3]);
-        src_crc = crc16(src_crc, ((guint64) ((struct sockaddr_in6*)lower)->sin6_port) << 48);
-        src_crc = crc16(src_crc, ((guint64) ((struct sockaddr_in6*)upper)->sin6_addr.s6_addr32[0]) << 32 | ((struct sockaddr_in6*)upper)->sin6_addr.s6_addr32[1]);
-        src_crc = crc16(src_crc, ((guint64) ((struct sockaddr_in6*)upper)->sin6_addr.s6_addr32[2]) << 32 | ((struct sockaddr_in6*)upper)->sin6_addr.s6_addr32[3]);
-        dst_crc = crc16(dst_crc, ((guint64) ((struct sockaddr_in6*)upper)->sin6_port) << 48);
-    }
+    tuple->hash = ((struct sockaddr_in*)lower)->sin_port << 16 | ((struct sockaddr_in*)upper)->sin_port;
 
-
-    prot_crc = crc16(prot_crc, ((guint64) g_inet_tuple_get_protocol(tuple)) << 56);
-    hash = (src_crc ^ dst_crc ^ prot_crc);
-
-    tuple->hash = hash;
-    return hash;
+    return tuple->hash;
 }
