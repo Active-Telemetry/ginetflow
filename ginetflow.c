@@ -986,29 +986,41 @@ GInetFlow *g_inet_flow_get(GInetFlowTable * table, const guint8 * frame, guint l
     return g_inet_flow_get_full(table, frame, length, 0, 0, FALSE, TRUE, NULL);
 }
 
-GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
-                                const guint8 * frame, guint length,
-                                guint16 hash, guint64 timestamp, gboolean update,
-                                gboolean l2, const uint8_t ** iphr)
+gboolean
+g_inet_flow_parse_with_tuple(GInetTuple * tuple, guint16 *flags, GInetFlowTable * table,
+                             const guint8 * frame, guint length,
+                             guint16 hash, guint64 timestamp, gboolean update,
+                             gboolean l2, const uint8_t ** iphr)
 {
-    GInetFlow packet = {.timestamp = timestamp };
-    GInetTuple tuple = { 0 };
     GInetFlow *flow = NULL;
 
     if (l2) {
         if (!flow_parse
-            (&tuple, frame, length, hash, &table->frag_info_list, iphr, timestamp,
-             &packet.flags)) {
-            goto exit;
+            (tuple, frame, length, hash, &table->frag_info_list, iphr, timestamp,
+             flags)) {
+            return FALSE;
         }
     } else
         if (!flow_parse_ip
-            (&tuple, frame, length, hash, &table->frag_info_list, iphr, timestamp,
-             &packet.flags)) {
-        goto exit;
+            (tuple, frame, length, hash, &table->frag_info_list, iphr, timestamp,
+             flags)) {
+            return FALSE;
     }
 
-    packet.tuple = tuple;
+    return TRUE;
+}
+
+GInetFlow *
+g_inet_flow_get_with_tuple(GInetFlowTable * table, GInetTuple *tuple, guint16 flags,
+                           const guint8 * frame, guint length,
+                           guint16 hash, guint64 timestamp, gboolean update,
+                           gboolean l2, const uint8_t ** iphr)
+{
+    GInetFlow packet = {.timestamp = timestamp };
+    GInetFlow *flow = NULL;
+
+    packet.tuple = *tuple;
+    packet.flags = flags;
 
     flow = (GInetFlow *) g_hash_table_lookup(table->table, &packet);
     if (flow) {
@@ -1045,6 +1057,28 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
         flow->packets++;
     }
   exit:
+
+    return flow;
+}
+
+GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
+                                const guint8 * frame, guint length,
+                                guint16 hash, guint64 timestamp, gboolean update,
+                                gboolean l2, const uint8_t ** iphr)
+{
+    GInetFlow packet = {.timestamp = timestamp };
+    GInetTuple tuple = { 0 };
+    GInetFlow *flow = NULL;
+    guint16 flags;
+
+    if (!g_inet_flow_parse_with_tuple(&tuple, &flags, table, frame, length,
+                                      hash, timestamp, update, l2, iphr))
+    {
+        return NULL;
+    }
+
+    flow = g_inet_flow_get_with_tuple(table, &tuple, flags, frame, length,
+                                      hash, timestamp, update, l2, iphr);
 
     return flow;
 }
@@ -1152,3 +1186,12 @@ GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GList ** fragm
     flow_parse(result, frame, length, 0, fragments, NULL, 0, NULL);
     return result;
 }
+
+GInetFlow *g_inet_flow_lookup (GInetFlowTable * table, GInetTuple *tuple)
+{
+    GInetFlow packet;
+
+    packet.tuple = *tuple;
+    return (GInetFlow *) g_hash_table_lookup(table->table, &packet);
+}
+
