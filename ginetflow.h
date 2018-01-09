@@ -51,6 +51,14 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table, const guint8 * frame,
                                 guint length, guint16 hash, guint64 timestamp,
                                 gboolean update, gboolean l2, const uint8_t ** iphr);
 GInetFlow *g_inet_flow_expire(GInetFlowTable * table, guint64 ts);
+gboolean g_inet_flow_parse_tuple (GInetTuple * tuple, guint16 *flags, GInetFlowTable * table,
+                                  const guint8 * frame, guint length,
+                                  guint16 hash, guint64 timestamp, gboolean update,
+                                  gboolean l2, const uint8_t ** iphr);
+GInetFlow *g_inet_flow_get_with_tuple(GInetFlowTable * table, GInetTuple *tuple, guint16 flags,
+                                      const guint8 * frame, guint length,
+                                      guint16 hash, guint64 timestamp, gboolean update,
+                                      gboolean l2, const uint8_t ** iphr);
 
 /* g_inet_flow_parse will populate result if result is not null, otherwise it will malloc a structure
  * to return. */
@@ -59,6 +67,7 @@ GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GList ** fragm
 
 typedef void (*GIFFunc) (GInetFlow * flow, gpointer user_data);
 void g_inet_flow_foreach(GInetFlowTable * table, GIFFunc func, gpointer user_data);
+GInetFlow *g_inet_flow_lookup(GInetFlowTable * table, GInetTuple *tuple);
 void g_inet_flow_table_max_set(GInetFlowTable * table, guint64 value);
 
 G_END_DECLS
