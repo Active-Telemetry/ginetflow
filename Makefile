@@ -45,7 +45,7 @@ LIBRARY = libginetflow.so
 
 all: $(LIBRARY)
 
-$(LIBRARY): ginetflow.o ginettuple.o
+$(LIBRARY): ginetflow.o ginettuple.o ginetfraglist.o
 	@echo "Building "$@""
 	$(Q)$(CC) -shared $(LDFLAGS) $(EXTRA_LDFLAGS) -o $@ $^
 
@@ -76,6 +76,7 @@ install: all
 	@install -d $(DESTDIR)/$(PREFIX)/include
 	@install -D ginetflow.h $(DESTDIR)/$(PREFIX)/include
 	@install -D ginettuple.h $(DESTDIR)/$(PREFIX)/include
+	@install -D ginetfraglist.h $(DESTDIR)/$(PREFIX)/include
 	@install -d $(DESTDIR)/$(PREFIX)/lib/pkgconfig
 	@install -D ginetflow.pc $(DESTDIR)/$(PREFIX)/lib/pkgconfig/
 

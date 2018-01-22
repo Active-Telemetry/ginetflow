@@ -32,8 +32,6 @@
 //#define DEBUG(fmt, args...) {g_printf("%s: ",__func__);g_printf (fmt, ## args);}
 #define CHECK_BIT(__v,__p) ((__v) & (1<<(__p)))
 
-#define MAX_FRAG_DEPTH      128
-#define FRAG_EXPIRY_TIME    30
 #define TIMESTAMP_RESOLUTION_US    1000000
 
 /** GInetFlow */
@@ -55,12 +53,6 @@ struct _GInetFlow {
     gpointer context;
 };
 
-struct frag_info {
-    guint32 id;
-    GInetTuple tuple;
-    guint64 timestamp;
-};
-
 struct _GInetFlowClass {
     GObjectClass parent;
 };
@@ -79,7 +71,7 @@ struct _GInetFlowTable {
     GObject parent;
     GHashTable *table;
     GQueue *expire_queue[LIFETIME_COUNT];
-    GList *frag_info_list;
+    GInetFragList *frag_info_list;
     guint64 hits;
     guint64 misses;
     guint64 max;
@@ -223,11 +215,11 @@ typedef struct ipv6_partial_ext_hdr_t {
 } __attribute__ ((packed)) ipv6_partial_ext_hdr_t;
 
 static gboolean flow_parse_ipv4(GInetTuple * f, const guint8 * data, guint32 length,
-                                GList ** fragments, const uint8_t ** iphr, guint64 ts,
-                                guint16 * flags, gboolean tunnel);
+                                GInetFragList * fragments, const uint8_t ** iphr,
+                                guint64 ts, guint16 * flags, gboolean tunnel);
 static gboolean flow_parse_ipv6(GInetTuple * f, const guint8 * data, guint32 length,
-                                GList ** fragments, const uint8_t ** iphr, guint64 ts,
-                                guint16 * flags, gboolean tunnel);
+                                GInetFragList * fragments, const uint8_t ** iphr,
+                                guint64 ts, guint16 * flags, gboolean tunnel);
 
 static inline guint64 get_time_us(void)
 {
@@ -236,105 +228,18 @@ static inline guint64 get_time_us(void)
     return (tv.tv_sec * (guint64) TIMESTAMP_RESOLUTION_US + tv.tv_usec);
 }
 
-static int address_comparison(struct sockaddr_storage *a, struct sockaddr_storage *b)
-{
-    if (((struct sockaddr_in *) a)->sin_family != ((struct sockaddr_in *) a)->sin_family) {
-        return 1;
-    }
-
-    if (((struct sockaddr_in *) a)->sin_family == AF_INET) {
-        struct sockaddr_in *a_v4 = (struct sockaddr_in *) a;
-        struct sockaddr_in *b_v4 = (struct sockaddr_in *) b;
-        return memcmp(&a_v4->sin_addr, &b_v4->sin_addr, sizeof(a_v4->sin_addr));
-    } else {
-        struct sockaddr_in6 *a_v6 = (struct sockaddr_in6 *) a;
-        struct sockaddr_in6 *b_v6 = (struct sockaddr_in6 *) b;
-        return memcmp(&a_v6->sin6_addr, &b_v6->sin6_addr, sizeof(a_v6->sin6_addr));
-    }
-}
-
-static int find_flow_by_frag_info(gconstpointer a, gconstpointer b)
-{
-    struct frag_info *entry = (struct frag_info *) a;
-    struct frag_info *f = (struct frag_info *) b;
-
-    if (entry->id != f->id) {
-        return 1;
-    }
-
-    /* This is similar to g_inet_tuple_equal but ignores ports as they
-     * are missing from the fragmented packet. */
-    struct sockaddr_storage *lower_a = g_inet_tuple_get_lower(&entry->tuple);
-    struct sockaddr_storage *upper_a = g_inet_tuple_get_upper(&entry->tuple);
-
-    struct sockaddr_storage *src_b = g_inet_tuple_get_lower(&f->tuple);
-    struct sockaddr_storage *dst_b = g_inet_tuple_get_upper(&f->tuple);
-
-    if (address_comparison(lower_a, src_b) == 0 && address_comparison(upper_a, dst_b) == 0) {
-        return 0;
-    }
-    if (address_comparison(lower_a, dst_b) == 0 && address_comparison(upper_a, src_b) == 0) {
-        return 0;
-    }
-    return 1;
-}
-
-static gboolean frag_is_expired(struct frag_info *frag_info, guint64 timestamp)
-{
-    if (timestamp - frag_info->timestamp > FRAG_EXPIRY_TIME * TIMESTAMP_RESOLUTION_US)
-        return TRUE;
-    return FALSE;
-}
-
-static guint16 clear_expired_frag_info(GList * frag_info_list, guint64 timestamp)
-{
-    guint16 cleared = 0;
-    GList *l = frag_info_list;
-    while (l != NULL) {
-        GList *next = l->next;
-        if (frag_is_expired(l->data, timestamp)) {
-            struct frag_info *frag_info = (struct frag_info *) (l->data);
-            free(l->data);
-            frag_info_list = g_list_delete_link(frag_info_list, l);
-            cleared += 1;
-        }
-        l = next;
-    }
-    return cleared;
-}
-
-static gboolean store_frag_info(GList ** fragments, GInetTuple * f, guint64 ts, guint32 id)
-{
-    uint64_t timestamp = ts ? : get_time_us();
-    if (g_list_length(*fragments) >= MAX_FRAG_DEPTH) {
-        if (clear_expired_frag_info(*fragments, timestamp) == 0) {
-            DEBUG("Fragment tracking limit reached\n");
-            return FALSE;
-        }
-    }
-    struct frag_info *entry = malloc(sizeof(struct frag_info));
-    entry->id = id;
-    entry->tuple = *f;
-    entry->timestamp = timestamp;
-    *fragments = g_list_prepend(*fragments, entry);
-    return TRUE;
-}
-
 static guint32 get_hdr_len(guint8 hdr_ext_len)
 {
     return (hdr_ext_len + IPV6_FIRST_8_OCTETS) * EIGHT_OCTET_UNITS;
 }
 
-static guint16 flow_hash(GInetFlow * f)
+static guint32 flow_hash(GInetFlow * f)
 {
     if (f->hash)
         return f->hash;
 
     f->hash = g_inet_tuple_hash(&f->tuple);
 
-    g_printf("%s", "");
-
-  exit:
     return f->hash;
 }
 
@@ -390,7 +295,7 @@ static gboolean flow_parse_sctp(GInetTuple * f, const guint8 * data, guint32 len
 }
 
 static gboolean flow_parse_gre(GInetTuple * f, const guint8 * data, guint32 length,
-                               GList ** fragments, const uint8_t ** iphr, guint64 ts,
+                               GInetFragList * fragments, const uint8_t ** iphr, guint64 ts,
                                guint16 * tcp_flags)
 {
     gre_hdr_t *gre = (gre_hdr_t *) data;
@@ -427,8 +332,8 @@ static gboolean flow_parse_gre(GInetTuple * f, const guint8 * data, guint32 leng
 }
 
 static gboolean flow_parse_ipv4(GInetTuple * f, const guint8 * data, guint32 length,
-                                GList ** fragments, const uint8_t ** iphr, guint64 ts,
-                                guint16 * tcp_flags, gboolean tunnel)
+                                GInetFragList * fragments, const uint8_t ** iphr,
+                                guint64 ts, guint16 * tcp_flags, gboolean tunnel)
 {
     ip_hdr_t *iph = (ip_hdr_t *) data;
     if (length < sizeof(ip_hdr_t))
@@ -449,33 +354,17 @@ static gboolean flow_parse_ipv4(GInetTuple * f, const guint8 * data, guint32 len
     g_inet_tuple_set_protocol(f, iph->protocol);
 
     /* Non-first IP fragments (frag_offset is non-zero) will need a look-up
-     * to find sport and dport
+     * to find sport and dport. First fragments need to be saved.
      */
-    if (fragments && (GUINT16_FROM_BE(iph->frag_off) & 0x1FFF) != 0) {
-        struct frag_info entry = { };
+    if (fragments && (GUINT16_FROM_BE(iph->frag_off) & 0x3FFF)) {
+        GInetFragment entry = { 0 };
         entry.id = iph->id;
         entry.tuple = *f;
+        entry.timestamp = ts;
 
-        GList *match = g_list_find_custom(*fragments, &entry, find_flow_by_frag_info);
-        if (!match)
-            return FALSE;
+        gboolean more_fragments = ! !(GUINT16_FROM_BE(iph->frag_off) & 0x2000);
 
-        struct frag_info *found_flow = match->data;
-
-        guint16 sport =
-            ((struct sockaddr_in *) g_inet_tuple_get_lower(&found_flow->tuple))->sin_port;
-        guint16 dport =
-            ((struct sockaddr_in *) g_inet_tuple_get_upper(&found_flow->tuple))->sin_port;
-
-        ((struct sockaddr_in *) &f->src)->sin_port = sport;
-        ((struct sockaddr_in *) &f->dst)->sin_port = dport;
-
-        /* If this is the last IP fragment (MF is unset), clean up */
-        if ((GUINT16_FROM_BE(iph->frag_off) & 0x2000) == 0) {
-            *fragments = g_list_remove(*fragments, found_flow);
-            free(found_flow);
-        }
-        return TRUE;
+        return g_inet_frag_list_update(fragments, &entry, more_fragments);
     }
 
     switch (iph->protocol) {
@@ -500,19 +389,12 @@ static gboolean flow_parse_ipv4(GInetTuple * f, const guint8 * data, guint32 len
         break;
     }
 
-    /* Store ID and tuple if the packet is a first IP fragment (MF set and frag_off is zero) */
-    if (fragments &&
-        ((GUINT16_FROM_BE(iph->frag_off) & 0x2000) != 0) &&
-        ((GUINT16_FROM_BE(iph->frag_off) & 0x1FFF) == 0)) {
-        return store_frag_info(fragments, f, ts, iph->id);
-    }
-
     return TRUE;
 }
 
 static gboolean flow_parse_ipv6(GInetTuple * f, const guint8 * data, guint32 length,
-                                GList ** fragments, const uint8_t ** iphr, guint64 ts,
-                                guint16 * tcp_flags, gboolean tunnel)
+                                GInetFragList * fragments, const uint8_t ** iphr,
+                                guint64 ts, guint16 * tcp_flags, gboolean tunnel)
 {
     ip6_hdr_t *iph = (ip6_hdr_t *) data;
     frag_hdr_t *fragment_hdr = NULL;
@@ -592,33 +474,20 @@ static gboolean flow_parse_ipv6(GInetTuple * f, const guint8 * data, guint32 len
         length -= sizeof(frag_hdr_t);
 
         /* Non-first IP fragments (frag_offset is non-zero) will need a look-up
-         * to find sport and dport
+         * to find sport and dport. First IP fragments need to be added to the list.
          */
-        if (fragments && (GUINT16_FROM_BE(fragment_hdr->fo_res_mflag) & 0xFFF8) != 0) {
-            struct frag_info entry = { };
+        if (fragments) {
+            GInetFragment entry = { 0 };
             entry.id = fragment_hdr->id;
             entry.tuple = *f;
+            entry.timestamp = ts;
 
-            GList *match = g_list_find_custom(*fragments, &entry, find_flow_by_frag_info);
-            if (!match) {
-                return FALSE;
-            }
+            gboolean more_fragments =
+                ! !(GUINT16_FROM_BE(fragment_hdr->fo_res_mflag) & 0x1);
 
-            struct frag_info *found_flow = match->data;
-
-            /* Match source port / address etc - could be either way around */
-            ((struct sockaddr_in6 *) &f->src)->sin6_port =
-                ((struct sockaddr_in6 *) &found_flow->tuple.src)->sin6_port;
-            ((struct sockaddr_in6 *) &f->dst)->sin6_port =
-                ((struct sockaddr_in6 *) &found_flow->tuple.dst)->sin6_port;
-
-            /* If this is the last IP fragment (MF is unset), clean up the list */
-            if ((GUINT16_FROM_BE(fragment_hdr->fo_res_mflag) & 0x1) == 0) {
-                *fragments = g_list_remove(*fragments, found_flow);
-                free(found_flow);
-            }
-            return TRUE;
+            return g_inet_frag_list_update(fragments, &entry, more_fragments);
         }
+
         goto next_header;
     case IP_PROTOCOL_AUTH:
         if (length < sizeof(auth_hdr_t))
@@ -637,19 +506,13 @@ static gboolean flow_parse_ipv6(GInetTuple * f, const guint8 * data, guint32 len
         break;
     }
 
-    /* Store ID and tuple if the packet is a first IP fragment (MF set and frag_off is zero) */
-    if (fragments && fragment_hdr &&
-        ((GUINT16_FROM_BE(fragment_hdr->fo_res_mflag) & 0x1) != 0) &&
-        ((GUINT16_FROM_BE(fragment_hdr->fo_res_mflag) & 0xFFF8) == 0)) {
-        return store_frag_info(fragments, f, ts, fragment_hdr->id);
-    }
-
     return TRUE;
 }
 
 static gboolean flow_parse_ip(GInetTuple * f, const guint8 * data, guint32 length,
-                              guint16 hash, GList ** fragments, const uint8_t ** iphr,
-                              guint64 ts, guint16 * flags, gboolean tunnel)
+                              guint16 hash, GInetFragList * fragments,
+                              const uint8_t ** iphr, guint64 ts, guint16 * flags,
+                              gboolean tunnel)
 {
     guint8 version;
 
@@ -673,7 +536,7 @@ static gboolean flow_parse_ip(GInetTuple * f, const guint8 * data, guint32 lengt
 }
 
 static gboolean flow_parse(GInetTuple * f, const guint8 * data, guint32 length,
-                           guint16 hash, GList ** fragments, const uint8_t ** iphr,
+                           guint16 hash, GInetFragList * fragments, const uint8_t ** iphr,
                            guint64 ts, guint16 * flags, gboolean tunnel)
 {
     ethernet_hdr_t *e;
@@ -1002,13 +865,13 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
 
     if (l2) {
         if (!flow_parse
-            (&tuple, frame, length, hash, &table->frag_info_list, iphr, timestamp,
+            (&tuple, frame, length, hash, table->frag_info_list, iphr, timestamp,
              &packet.flags, inspect_tunnel)) {
             goto exit;
         }
     } else
         if (!flow_parse_ip
-            (&tuple, frame, length, hash, &table->frag_info_list, iphr, timestamp,
+            (&tuple, frame, length, hash, table->frag_info_list, iphr, timestamp,
              &packet.flags, inspect_tunnel)) {
         goto exit;
     }
@@ -1084,6 +947,7 @@ static void g_inet_flow_table_finalize(GObject * object)
 
     GInetFlowTable *table = G_INET_FLOW_TABLE(object);
     g_hash_table_destroy(table->table);
+    g_inet_frag_list_free(table->frag_info_list);
     for (i = 0; i < LIFETIME_COUNT; i++) {
         g_queue_free(table->expire_queue[i]);
     }
@@ -1148,6 +1012,7 @@ static void g_inet_flow_table_init(GInetFlowTable * table)
     int i;
 
     table->table = g_hash_table_new((GHashFunc) flow_hash, (GEqualFunc) flow_compare);
+    table->frag_info_list = g_inet_frag_list_new();
 
     for (i = 0; i < LIFETIME_COUNT; i++) {
         table->expire_queue[i] = g_queue_new();
@@ -1173,7 +1038,7 @@ void g_inet_flow_foreach(GInetFlowTable * table, GIFFunc func, gpointer user_dat
     }
 }
 
-GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GList ** fragments,
+GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GInetFragList * fragments,
                               GInetTuple * result, gboolean inspect_tunnel)
 {
     if (!result)

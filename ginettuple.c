@@ -129,8 +129,8 @@ guint g_inet_tuple_hash(GInetTuple * tuple)
     struct sockaddr_storage *upper = g_inet_tuple_get_upper(tuple);
 
     tuple->hash =
-        ((struct sockaddr_in *) lower)->sin_port << 16 | ((struct sockaddr_in *) upper)->
-        sin_port;
+        ((struct sockaddr_in *) lower)->
+        sin_port << 16 | ((struct sockaddr_in *) upper)->sin_port;
 
     return tuple->hash;
 }

@@ -20,6 +20,7 @@
 
 #include <glib-object.h>
 #include <ginettuple.h>
+#include <ginetfraglist.h>
 
 G_BEGIN_DECLS
 #define G_INET_TYPE_FLOW            (g_inet_flow_get_type ())
@@ -56,7 +57,7 @@ GInetFlow *g_inet_flow_expire(GInetFlowTable * table, guint64 ts);
 
 /* g_inet_flow_parse will populate result if result is not null, otherwise it will malloc a structure
  * to return. */
-GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GList ** fragments,
+GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GInetFragList * fragments,
                               GInetTuple * result, gboolean inspect_tunnel);
 
 typedef void (*GIFFunc) (GInetFlow * flow, gpointer user_data);

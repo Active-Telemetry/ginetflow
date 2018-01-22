@@ -17,6 +17,7 @@
  */
 #include "ginetflow.c"
 #include "ginettuple.c"
+#include "ginetfraglist.c"
 #include <arpa/inet.h>
 #include <np.h>
 
@@ -1994,7 +1995,7 @@ void test_flow_parse_ipv4_fragment()
 
     setup_test();
     NP_ASSERT_NOT_NULL((table = g_inet_flow_table_new()));
-    NP_ASSERT(g_list_length(table->frag_info_list) == 0);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 0);
 
     /* First IP fragment */
     p = build_hdr_eth(test_buffer, ETH_PROTOCOL_IP);
@@ -2003,7 +2004,7 @@ void test_flow_parse_ipv4_fragment()
     NP_ASSERT_NOT_NULL((flow1 =
                         g_inet_flow_get_full(table, test_buffer, len, 0, 0, TRUE, TRUE,
                                              FALSE, NULL)));
-    NP_ASSERT(g_list_length(table->frag_info_list) == 1);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 1);
 
     /* Second IP fragment */
     p = build_hdr_eth(test_buffer, ETH_PROTOCOL_IP);
@@ -2013,7 +2014,7 @@ void test_flow_parse_ipv4_fragment()
                         g_inet_flow_get_full(table, test_buffer, len, 0, 0, TRUE, TRUE,
                                              FALSE, NULL)));
     NP_ASSERT(flow1 == flow2);
-    NP_ASSERT(g_list_length(table->frag_info_list) == 1);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 1);
 
     /* Last IP fragment */
     p = build_hdr_eth(test_buffer, ETH_PROTOCOL_IP);
@@ -2023,7 +2024,7 @@ void test_flow_parse_ipv4_fragment()
                         g_inet_flow_get_full(table, test_buffer, len, 0, 0, TRUE, TRUE,
                                              FALSE, NULL)));
     NP_ASSERT(flow1 == flow3);
-    NP_ASSERT(g_list_length(table->frag_info_list) == 0);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 0);
 
     g_object_unref(flow1);
     g_object_unref(table);
@@ -2037,7 +2038,7 @@ void test_flow_parse_ipv6_fragment()
 
     setup_test();
     NP_ASSERT_NOT_NULL((table = g_inet_flow_table_new()));
-    NP_ASSERT(g_list_length(table->frag_info_list) == 0);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 0);
 
     /* First IP fragment */
     p = build_hdr_eth(test_buffer, ETH_PROTOCOL_IPV6);
@@ -2047,7 +2048,7 @@ void test_flow_parse_ipv6_fragment()
     NP_ASSERT_NOT_NULL((flow1 =
                         g_inet_flow_get_full(table, test_buffer, len, 0, 0, TRUE, TRUE,
                                              FALSE, NULL)));
-    NP_ASSERT(g_list_length(table->frag_info_list) == 1);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 1);
 
     /* Second IP fragment */
     p = build_hdr_eth(test_buffer, ETH_PROTOCOL_IPV6);
@@ -2057,7 +2058,7 @@ void test_flow_parse_ipv6_fragment()
                         g_inet_flow_get_full(table, test_buffer, len, 0, 0, TRUE, TRUE,
                                              FALSE, NULL)));
     NP_ASSERT(flow1 == flow2);
-    NP_ASSERT(g_list_length(table->frag_info_list) == 1);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 1);
 
     /* Last IP fragment */
     p = build_hdr_eth(test_buffer, ETH_PROTOCOL_IPV6);
@@ -2067,7 +2068,7 @@ void test_flow_parse_ipv6_fragment()
                         g_inet_flow_get_full(table, test_buffer, len, 0, 0, TRUE, TRUE,
                                              FALSE, NULL)));
     NP_ASSERT(flow1 == flow3);
-    NP_ASSERT(g_list_length(table->frag_info_list) == 0);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 0);
 
     g_object_unref(flow1);
     g_object_unref(table);
@@ -2082,7 +2083,7 @@ void test_clear_expired_frag_info()
 
     setup_test();
     NP_ASSERT_NOT_NULL((table = g_inet_flow_table_new()));
-    NP_ASSERT(g_list_length(table->frag_info_list) == 0);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 0);
 
     /* IP fragment 1 - expired */
     p = build_hdr_eth(test_buffer, ETH_PROTOCOL_IP);
@@ -2091,7 +2092,7 @@ void test_clear_expired_frag_info()
     NP_ASSERT_NOT_NULL((flow1 =
                         g_inet_flow_get_full(table, test_buffer, len, 0, now - 50 * 1000000,
                                              TRUE, TRUE, FALSE, NULL)));
-    NP_ASSERT(g_list_length(table->frag_info_list) == 1);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 1);
 
     /* IP fragment 2 - expired */
     p = build_hdr_eth(test_buffer, ETH_PROTOCOL_IP);
@@ -2099,7 +2100,7 @@ void test_clear_expired_frag_info()
     NP_ASSERT_NOT_NULL((flow2 =
                         g_inet_flow_get_full(table, test_buffer, len, 0, now - 40 * 1000000,
                                              TRUE, TRUE, FALSE, NULL)));
-    NP_ASSERT(g_list_length(table->frag_info_list) == 2);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 2);
 
     /* IP fragment 3 - not expired */
     p = build_hdr_eth(test_buffer, ETH_PROTOCOL_IP);
@@ -2107,12 +2108,12 @@ void test_clear_expired_frag_info()
     NP_ASSERT_NOT_NULL((flow3 =
                         g_inet_flow_get_full(table, test_buffer, len, 0, now - 30 * 1000000,
                                              TRUE, TRUE, FALSE, NULL)));
-    NP_ASSERT(g_list_length(table->frag_info_list) == 3);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 3);
 
     NP_ASSERT(clear_expired_frag_info(table->frag_info_list, now) == 2);
-    NP_ASSERT(g_list_length(table->frag_info_list) == 1);
+    NP_ASSERT(g_list_length(table->frag_info_list->head) == 1);
 
-    struct frag_info *non_expired = (g_list_first(table->frag_info_list))->data;
+    GInetFragment *non_expired = (g_list_first(table->frag_info_list->head))->data;
     NP_ASSERT(non_expired->id == 0x3333);
 
     /* Do proper clean up */
