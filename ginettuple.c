@@ -119,8 +119,14 @@ gboolean g_inet_tuple_equal(GInetTuple * a, GInetTuple * b)
     if (sock_address_comparison(lower_a, lower_b)) {
         return FALSE;
     }
+    if (((struct sockaddr_in *)lower_a)->sin_port != ((struct sockaddr_in *)lower_b)->sin_port) {
+        return FALSE;
+    }
     if (sock_address_comparison(upper_a, upper_b)) {
         return FALSE;
+    }
+    if (((struct sockaddr_in *)upper_a)->sin_port != ((struct sockaddr_in *)upper_b)->sin_port) {
+       return FALSE;
     }
     return TRUE;
 }

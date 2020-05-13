@@ -24,10 +24,14 @@ static GInetTuple _test_tuple;
 static GInetTuple *test_tuple = &_test_tuple;
 #define MAX_BUFFER_SIZE     1600
 
-#define TEST_SPORT 0x1111
-#define TEST_DPORT 0x2222
-#define TEST_SADDR 0x12345678
-#define TEST_DADDR 0x87654321
+#define _TEST_SPORT 0x1111
+uint16_t TEST_SPORT = _TEST_SPORT;
+#define _TEST_DPORT 0x2222
+uint16_t TEST_DPORT = _TEST_DPORT;
+#define _TEST_SADDR 0x12345678
+uint32_t TEST_SADDR = _TEST_SADDR;
+#define _TEST_DADDR 0x87654321
+uint32_t TEST_DADDR = _TEST_DADDR;
 
 #define SYN        0x0002
 #define SYN_ACK    0x0012
@@ -2278,6 +2282,33 @@ void test_flow_match_icmp6()
     g_object_unref(table);
 }
 
+void test_flow_nomatch_port()
+{
+    GInetFlowTable *table;
+    GInetFlow *flow1, *flow2;
+    guint len;
+
+    setup_test();
+    g_assert_nonnull((table = g_inet_flow_table_new()));
+
+    len = make_pkt(test_buffer, ETH_PROTOCOL_IP, IP_PROTOCOL_UDP);
+    flow1 = g_inet_flow_get_full(table, test_buffer, len, 0, 0, TRUE, TRUE, FALSE, NULL, NULL);
+    g_assert_nonnull(flow1);
+
+    /* Will match the same hash bucket */
+    TEST_SPORT = _TEST_SPORT - 1;
+    len = make_pkt(test_buffer, ETH_PROTOCOL_IP, IP_PROTOCOL_UDP);
+    flow2 = g_inet_flow_get_full(table, test_buffer, len, 0, 0, TRUE, TRUE, FALSE, NULL, NULL);
+    TEST_SPORT = _TEST_SPORT;
+    g_assert_nonnull(flow2);
+
+    g_assert_false(flow1 == flow2);
+
+    g_object_unref(flow1);
+    g_object_unref(flow2);
+    g_object_unref(table);
+}
+
 int main (int argc, char *argv[])
 {
     int rc;
@@ -2346,6 +2377,7 @@ int main (int argc, char *argv[])
     g_test_add_func ("/flow/match/tcp6", test_flow_match_tcp6);
     g_test_add_func ("/flow/match/icmp", test_flow_match_icmp);
     g_test_add_func ("/flow/match/icmp6", test_flow_match_icmp6);
+    g_test_add_func ("/flow/nomatch/port", test_flow_nomatch_port);
 
     rc = g_test_run();
     return rc;
