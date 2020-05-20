@@ -1107,8 +1107,10 @@ void g_inet_flow_foreach(GInetFlowTable * table, GIFFunc func, gpointer user_dat
 {
     int i;
 
-    for (i = 0; i < LIFETIME_COUNT; i++) {
-        g_queue_foreach(table->expire_queue[i], (GFunc) func, user_data);
+    if (table) {
+        for (i = 0; i < LIFETIME_COUNT; i++) {
+            g_queue_foreach(table->expire_queue[i], (GFunc) func, user_data);
+        }
     }
 }
 
