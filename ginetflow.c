@@ -369,7 +369,7 @@ static gboolean flow_parse_ipv4(GInetTuple * f, const guint8 * data, guint32 len
             break;
         case IP_PROTOCOL_GRE:
             if (tunnel) {
-                if (!flow_parse_gre(f, data + sizeof(ip_hdr_t), length - sizeof(ip_hdr_t), 
+                if (!flow_parse_gre(f, data + sizeof(ip_hdr_t), length - sizeof(ip_hdr_t),
                                     fragments, iphr, ts, tcp_flags))
                     return FALSE;
             }
