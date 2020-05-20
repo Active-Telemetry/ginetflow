@@ -990,7 +990,7 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
     return flow;
 }
 
-GInetFlow *g_inet_flow_create(GInetFlowTable * table, GInetTuple * tuple)
+GInetFlow *g_inet_flow_create(GInetFlowTable * table, GInetTuple * tuple, uint64_t timestamp)
 {
     GInetFlow *flow;
 
@@ -1008,7 +1008,7 @@ GInetFlow *g_inet_flow_create(GInetFlowTable * table, GInetTuple * tuple)
     flow->hash = g_inet_tuple_hash(tuple);
     flow->tuple = *tuple;
     g_hash_table_replace(table->table, (gpointer) flow, (gpointer) flow);
-    flow->timestamp = get_time_us();
+    flow->timestamp = timestamp ?: get_time_us();
     insert_flow_by_expiry(table, flow, flow->lifetime);
 
     return flow;
