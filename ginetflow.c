@@ -653,6 +653,8 @@ enum {
     FLOW_SERVER_IP,
     FLOW_TUPLE,
     FLOW_DIRECTION,
+    FLOW_LIFETIME,
+    FLOW_TIMESTAMP,
 };
 
 static int find_expiry_index(guint64 lifetime)
@@ -688,6 +690,12 @@ static void g_inet_flow_get_property(GObject * object, guint prop_id,
     switch (prop_id) {
     case FLOW_STATE:
         g_value_set_uint(value, flow->state);
+        break;
+    case FLOW_LIFETIME:
+        g_value_set_uint64(value, flow->lifetime);
+        break;
+    case FLOW_TIMESTAMP:
+        g_value_set_uint64(value, flow->timestamp);
         break;
     case FLOW_PACKETS:
         g_value_set_uint64(value, flow->packets);
@@ -760,6 +768,16 @@ static void g_inet_flow_class_init(GInetFlowClass * class)
                                                       "State of the flow",
                                                       FLOW_NEW, FLOW_CLOSED,
                                                       0, G_PARAM_READABLE));
+    g_object_class_install_property(object_class, FLOW_LIFETIME,
+                                    g_param_spec_uint64("lifetime", "Lifetime",
+                                                      "Lifetime of flow",
+                                                      0, G_MAXUINT64, 0,
+                                                      G_PARAM_READABLE));
+    g_object_class_install_property(object_class, FLOW_TIMESTAMP,
+                                    g_param_spec_uint64("timestamp", "Timestamp",
+                                                      "Timestamp of flow",
+                                                      0, G_MAXUINT64, 0,
+                                                      G_PARAM_READABLE));
     g_object_class_install_property(object_class, FLOW_PACKETS,
                                     g_param_spec_uint64("packets", "Packets",
                                                         "Number of packets seen",
