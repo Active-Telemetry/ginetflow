@@ -62,6 +62,7 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table, const guint8 * frame,
 GInetFlow *g_inet_flow_create(GInetFlowTable * table, GInetTuple * tuple, uint64_t timestamp);
 GInetFlow *g_inet_flow_expire(GInetFlowTable * table, guint64 ts);
 void g_inet_flow_establish(GInetFlowTable * table, GInetFlow * flow);
+void g_inet_flow_close(GInetFlowTable * table, GInetFlow * flow);
 
 /* g_inet_flow_parse will populate result if result is not null, otherwise it will malloc a structure
  * to return. */

@@ -1139,3 +1139,11 @@ void g_inet_flow_establish(GInetFlowTable * table, GInetFlow * flow)
     flow->lifetime = G_INET_FLOW_DEFAULT_OPEN_TIMEOUT;
     insert_flow_by_expiry(table, flow, flow->lifetime);
 }
+
+void g_inet_flow_close(GInetFlowTable * table, GInetFlow * flow)
+{
+    remove_flow_by_expiry(table, flow, flow->lifetime);
+    flow->state = FLOW_CLOSED;
+    flow->lifetime = G_INET_FLOW_DEFAULT_CLOSED_TIMEOUT;
+    insert_flow_by_expiry(table, flow, flow->lifetime);
+}
