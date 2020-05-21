@@ -223,9 +223,12 @@ static gboolean flow_parse_ipv6(GInetTuple * f, const guint8 * data, guint32 len
 
 static inline guint64 get_time_us(void)
 {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (tv.tv_sec * (guint64) TIMESTAMP_RESOLUTION_US + tv.tv_usec);
+    struct timespec now;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &now) == 0)
+        return (now.tv_sec * (guint64)TIMESTAMP_RESOLUTION_US + (now.tv_nsec / 1000));
+    else
+        return 0;
 }
 
 static guint32 get_hdr_len(guint8 hdr_ext_len)
