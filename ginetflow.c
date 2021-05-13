@@ -561,6 +561,15 @@ static gboolean flow_parse_ip(GInetTuple * f, const guint8 * data, guint32 lengt
     return TRUE;
 }
 
+GInetTuple *g_inet_flow_parse_ip(const guint8 * iphdr, guint length, GInetFragList * fragments,
+                              GInetTuple * result, gboolean inspect_tunnel)
+{
+    if (!result)
+        result = calloc(1, sizeof(GInetTuple));
+    flow_parse_ip(result, iphdr, length, 0, fragments, NULL, 0, NULL, inspect_tunnel);
+    return result;
+}
+
 static gboolean flow_parse(GInetTuple * f, const guint8 * data, guint32 length,
                            guint16 hash, GInetFragList * fragments, const uint8_t ** iphr,
                            guint64 ts, guint16 * flags, gboolean tunnel)

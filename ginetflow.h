@@ -68,6 +68,8 @@ void g_inet_flow_close(GInetFlowTable * table, GInetFlow * flow);
  * to return. */
 GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GInetFragList * fragments,
                               GInetTuple * result, gboolean inspect_tunnel);
+GInetTuple *g_inet_flow_parse_ip(const guint8 * iphdr, guint length, GInetFragList * fragments,
+                              GInetTuple * result, gboolean inspect_tunnel);
 
 typedef void (*GIFFunc) (GInetFlow * flow, gpointer user_data);
 void g_inet_flow_foreach(GInetFlowTable * table, GIFFunc func, gpointer user_data);
