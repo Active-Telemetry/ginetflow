@@ -28,7 +28,7 @@ typedef struct _GInetTuple {
     struct sockaddr_storage src;
     struct sockaddr_storage dst;
     guint16 protocol;
-
+    guint16 offset;
     /* Internal use only */
     guint hash;
 } GInetTuple;

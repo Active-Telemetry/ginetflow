@@ -357,6 +357,7 @@ static gboolean flow_parse_ipv4(GInetTuple * f, const guint8 * data, guint32 len
     DEBUG("Protocol: %d\n", iph->protocol);
     g_inet_tuple_set_protocol(f, iph->protocol);
 
+    f->offset += sizeof(ip_hdr_t);
     /* Don't bother with this for non-first fragments */
     if ((GUINT16_FROM_BE(iph->frag_off) & 0x1FFF) == 0)
     {
@@ -595,6 +596,7 @@ static gboolean flow_parse(GInetTuple * f, const guint8 * data, guint32 length,
     e = (ethernet_hdr_t *) data;
     data += sizeof(ethernet_hdr_t);
     length -= sizeof(ethernet_hdr_t);
+    f->offset += sizeof(ethernet_hdr_t);
     type = GUINT16_FROM_BE(e->protocol);
   try_again:
     switch (type) {
@@ -609,6 +611,7 @@ static gboolean flow_parse(GInetTuple * f, const guint8 * data, guint32 length,
         type = GUINT16_FROM_BE(v->protocol);
         data += sizeof(vlan_hdr_t);
         length -= sizeof(vlan_hdr_t);
+        f->offset += sizeof(vlan_hdr_t);
         goto try_again;
     case ETH_PROTOCOL_MPLS_UC:
     case ETH_PROTOCOL_MPLS_MC:
