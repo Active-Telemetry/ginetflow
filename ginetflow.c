@@ -429,6 +429,7 @@ static gboolean flow_parse_ipv6(GInetTuple * f, const guint8 * data, guint32 len
 
     data += sizeof(ip6_hdr_t);
     length -= sizeof(ip6_hdr_t);
+    f->offset += sizeof(ip6_hdr_t);
 
   next_header:
     DEBUG("Next Header: %u\n", g_inet_tuple_get_protocol(f));
