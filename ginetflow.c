@@ -44,7 +44,7 @@ struct _GInetFlow {
     guint64 packets;
     GInetFlowState state;
     guint family;
-    guint16 hash;
+    guint32 hash;
     guint16 flags;
     guint8 direction;
     guint16 server_port;
@@ -538,7 +538,7 @@ static gboolean flow_parse_ipv6(GInetTuple * f, const guint8 * data, guint32 len
 }
 
 static gboolean flow_parse_ip(GInetTuple * f, const guint8 * data, guint32 length,
-                              guint16 hash, GInetFragList * fragments,
+                              GInetFragList * fragments,
                               const uint8_t ** iphr, guint64 ts, guint16 * flags,
                               gboolean tunnel)
 {
@@ -568,12 +568,12 @@ GInetTuple *g_inet_flow_parse_ip(const guint8 * iphdr, guint length, GInetFragLi
 {
     if (!result)
         result = calloc(1, sizeof(GInetTuple));
-    flow_parse_ip(result, iphdr, length, 0, fragments, NULL, 0, NULL, inspect_tunnel);
+    flow_parse_ip(result, iphdr, length, fragments, NULL, 0, NULL, inspect_tunnel);
     return result;
 }
 
 static gboolean flow_parse(GInetTuple * f, const guint8 * data, guint32 length,
-                           guint16 hash, GInetFragList * fragments, const uint8_t ** iphr,
+                           GInetFragList * fragments, const uint8_t ** iphr,
                            guint64 ts, guint16 * flags, gboolean tunnel)
 {
     ethernet_hdr_t *e;
@@ -631,7 +631,7 @@ static gboolean flow_parse(GInetTuple * f, const guint8 * data, guint32 length,
         goto try_again;
     case ETH_PROTOCOL_IP:
     case ETH_PROTOCOL_IPV6:
-        if (!flow_parse_ip(f, data, length, hash, fragments, iphr, ts, flags, tunnel))
+        if (!flow_parse_ip(f, data, length, fragments, iphr, ts, flags, tunnel))
             return FALSE;
         break;
     case ETH_PROTOCOL_PPPOE_SESS:
@@ -950,14 +950,12 @@ GInetFlow *g_inet_flow_get_full(GInetFlowTable * table,
     }
 
     if (l2) {
-        if (!flow_parse
-            (tuple, frame, length, hash, table->frag_info_list, iphr, timestamp,
+        if (!flow_parse(tuple, frame, length, table->frag_info_list, iphr, timestamp,
              &packet.flags, inspect_tunnel)) {
             goto exit;
         }
     } else
-        if (!flow_parse_ip
-            (tuple, frame, length, hash, table->frag_info_list, iphr, timestamp,
+        if (!flow_parse_ip(tuple, frame, length, table->frag_info_list, iphr, timestamp,
              &packet.flags, inspect_tunnel)) {
         goto exit;
     }
@@ -1135,7 +1133,7 @@ GInetTuple *g_inet_flow_parse(const guint8 * frame, guint length, GInetFragList 
 {
     if (!result)
         result = calloc(1, sizeof(GInetTuple));
-    flow_parse(result, frame, length, 0, fragments, NULL, 0, NULL, inspect_tunnel);
+    flow_parse(result, frame, length, fragments, NULL, 0, NULL, inspect_tunnel);
     return result;
 }
 

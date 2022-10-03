@@ -46,6 +46,7 @@ test: test.c
 	@echo "Building $@"
 	$(Q)mkdir -p gcov
 	$(Q)$(CC) -g -fprofile-arcs -fprofile-dir=gcov -ftest-coverage $(CFLAGS) $(EXTRA_CFLAGS) -o $@ $< $(LDFLAGS) $(EXTRA_LDFLAGS)
+	# $(Q)valgrind --tool=callgrind ./test -p /flow/create/many
 	$(Q)G_SLICE=always-malloc VALGRIND_OPTS=--suppressions=valgrind.supp valgrind --leak-check=full ./test 2>&1
 	$(Q)mv *.gcno gcov/
 	$(Q)lcov -q --capture --directory . --output-file gcov/coverage.info
