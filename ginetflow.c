@@ -624,6 +624,7 @@ static gboolean flow_parse(GInetTuple * f, const guint8 * data, guint32 length,
         label = GUINT32_FROM_BE(*((guint32 *) data));
         data += sizeof(guint32);
         length -= sizeof(guint32);
+        f->offset += sizeof(guint32);
         if ((label & 0x100) != 0x100)
             type = ETH_PROTOCOL_MPLS_UC;
         else
@@ -648,6 +649,7 @@ static gboolean flow_parse(GInetTuple * f, const guint8 * data, guint32 length,
         }
         data += sizeof(pppoe_sess_hdr_t);
         length -= sizeof(pppoe_sess_hdr_t);
+        f->offset += sizeof(pppoe_sess_hdr_t);
         goto try_again;
     default:
         DEBUG("Unsupported ethernet protocol: 0x%04x\n", type);
